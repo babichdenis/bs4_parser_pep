@@ -5,8 +5,24 @@
 
 ### Парсер сайтов по документации Python и стандартам PEP
 
-### Описание:
-Парсер выполняет сбор информации об актуальных версиях документации Python и стандартах PEP, отображая результаты парсинга в нескольких форматах на выбор.
+## Описание
+
+Учебный проект для практики создания парсеров.
+
+Парсится документация Python: PEP, версии, обновления, архив с документацией.
+
+В проекте реализован парсинг аргументов командной строки для выбора режима работы программы. Всего доступно четыре режима:
+- **whats-new** (получение списка ссылок на перечень изменений в версиях Python)
+- **latest-versions** (получение списка ссылок на документацию для всех версий Python)
+- **download** (скачивание архива с документацией для последней версии Python)
+- **pep** (получение данных о статусах всех PEP и вывод информации о несоответствиях статусов в общем списке и в карточках отдельных PEP)
+
+Реализована возможность выбора формата вывода:
+- стандартный вывод в терминал;
+- вывод в терминал в табличной форме (prettytable);
+- запись результатов работы в файл .csv.
+
+Настроено логирование - логи выводятся в терминал и сохраняются в отдельной директории с ротацией.
 
 Список поддерживаемых сайтов:
 
@@ -24,12 +40,12 @@ git clone git@github.com:babichdenis/bs4_parser_pep.git
 для MacOS:
 ```
 python3 -m venv venv
+source venv/bin/activate
 ```
 
 для Windows:
 ```
 python -m venv venv
-source venv/bin/activate
 source venv/Scripts/activate
 ```
 **Установите зависимости из файла requirements.txt:**
@@ -39,7 +55,7 @@ pip install -r requirements.txt
 
 **Перейдите в папку "src":**
 ```
-cd src/
+cd src
 ```
 
 **Запустите парсер в одном из режимов:**
@@ -112,11 +128,14 @@ python main.py <parser_mode> --output pretty
 python main.py <parser_mode>
 ```
 
-**Технологии:**
-- Python 3.9
-- BeautifulSoup4
+## Ключевые технологии и библиотеки:
+- [Python](https://www.python.org/);
+- [BeautifulSoup](https://pypi.org/project/beautifulsoup4/);
+- [requests_cache](https://pypi.org/project/requests-cache/);
+- [argparse](https://docs.python.org/3/library/argparse.html);
+- [prettytable](https://pypi.org/project/prettytable/);
+- [tqdm](https://pypi.org/project/tqdm/).
 
 ### Автор проекта:
 
-
-babichdenis
+[babichdenis](https://github.com/babichdenis/);
