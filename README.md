@@ -1,3 +1,4 @@
+<a href="https://codeclimate.com/github/babichdenis/bs4_parser_pep/maintainability"><img src="https://api.codeclimate.com/v1/badges/f662db790b579c11319b/maintainability" /></a>
 ### Парсер сайтов по документации Python и стандартам PEP
 
 ### Описание:
