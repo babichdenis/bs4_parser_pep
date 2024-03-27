@@ -1,4 +1,3 @@
-<a href="https://codeclimate.com/github/babichdenis/bs4_parser_pep/maintainability"><img src="https://api.codeclimate.com/v1/badges/f662db790b579c11319b/maintainability" /></a>
 [![Python](https://img.shields.io/badge/-Python-464646?style=flat&logo=Python&logoColor=ffffff&color=043A6B)](https://www.python.org/)
 [![BeautifulSoup4](https://img.shields.io/badge/-BeautifulSoup4-464646?style=flat&logo=BeautifulSoup4&logoColor=ffffff&color=043A6B)](https://www.crummy.com/software/BeautifulSoup/)
 [![Prettytable](https://img.shields.io/badge/-Prettytable-464646?style=flat&logo=Prettytable&logoColor=ffffff&color=043A6B)](https://github.com/jazzband/prettytable)
@@ -18,7 +17,7 @@
 ### Инструкция по запуску:
 **Клонируйте репозиторий:**
 ```
-git clone git@github.com:VadimVolkovsky/bs4_parser_pep.git
+git clone git@github.com:babichdenis/bs4_parser_pep.git
 ```
 
 **Установите и активируйте виртуальное окружение:**
