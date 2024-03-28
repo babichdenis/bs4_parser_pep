@@ -1,21 +1,85 @@
 import logging
 import re
 from urllib.parse import urljoin
-
+from collections import Counter
 import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from constants import BASE_DIR, MAIN_DOC_URL, WHATS_NEW_URL
+from constants import (
+    BASE_DIR, MAIN_DOC_URL,
+    WHATS_NEW_URL, PEP_URL, EXPECTED_STATUS)
 from configs import configure_argument_parser, configure_logging
 from outputs import control_output
 from utils import get_response, find_tag
 
 
+def pep(session):
+    """Парсер информации из статей о нововведениях в Python."""
+
+    response = get_response(session, PEP_URL)
+    soup = BeautifulSoup(response.text, 'lxml')
+
+    num_index = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
+    tbody_tag = find_tag(num_index, 'tbody')
+    tr_tags = tbody_tag.find_all('tr')
+
+    total_pep_count = 0
+    status_counter = Counter()
+
+    results = [('Статус', 'Количество')]
+
+    for pep_line in tqdm(tr_tags):
+        total_pep_count += 1
+        short_status = pep_line.find('td').text[1:]
+        try:
+            status_ext = EXPECTED_STATUS[short_status]
+        except KeyError:
+            status_ext = []
+            logging.info(
+                f'\nОшибочный статус в общем списке: {short_status}\n'
+                f'Строка PEP: {pep_line}'
+            )
+
+        link = find_tag(pep_line, 'a')['href']
+        full_link = urljoin(PEP_URL, link)
+        response = get_response(session, full_link)
+        soup = BeautifulSoup(response.text, 'lxml')
+        dl_tag = find_tag(soup, 'dl')
+        status_line = dl_tag.find(string='Status')
+
+        if not status_line:
+            logging.error(f'{full_link} - не найдена строка статуса')
+            continue
+        status_line = status_line.find_parent()
+        status_int = status_line.next_sibling.next_sibling.string
+        if status_int not in status_ext:
+            logging.info(
+                '\nНесовпадение статусов:\n'
+                f'{full_link}\n'
+                f'Статус в карточке - {status_int}\n'
+                f'Ожидаемые статусы - {status_ext}'
+            )
+        status_counter[status_int] += 1
+
+    results.extend(status_counter.items())
+    sum_from_cards = sum(status_counter.values())
+
+    if total_pep_count != sum_from_cards:
+        logging.error(
+            f'\n Ошибка в сумме:\n'
+            f'Всего PEP: {total_pep_count}'
+            f'Всего статусов из карточек: {sum_from_cards}'
+        )
+        results.append(('Total', sum_from_cards))
+    else:
+        results.append(('Total', total_pep_count))
+    return results
+
+
 def whats_new(session):
     """Парсер информации из статей о нововведениях в Python."""
 
-    session = requests_cache.CachedSession()
     response = get_response(session, WHATS_NEW_URL)
     if response is None:
         return
@@ -45,7 +109,6 @@ def whats_new(session):
 def latest_versions(session):
     """Парсер статусов версий Python."""
     REG_EX = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
-    session = requests_cache.CachedSession()
     response = get_response(session, MAIN_DOC_URL)
     if response is None:
         return
@@ -79,7 +142,6 @@ def latest_versions(session):
 def download(session):
     FILE = r'.+pdf-a4\.zip$'
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
-    session = requests_cache.CachedSession()
     response = get_response(session, downloads_url)
     if response is None:
         return
@@ -103,7 +165,7 @@ MODE_TO_FUNCTION = {
     'whats-new': whats_new,
     'latest-versions': latest_versions,
     'download': download,
-    #    'pep': pep,
+    'pep': pep,
 }
 
 

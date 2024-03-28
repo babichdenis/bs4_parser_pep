@@ -45,6 +45,7 @@ git clone git@github.com:babichdenis/bs4_parser_pep.git
 ```
 
 **Установите и активируйте виртуальное окружение:**
+
 для MacOS:
 ```
 python3 -m venv venv
