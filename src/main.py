@@ -8,9 +8,10 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import (BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEP_URL,
-                       WHATS_NEW_URL)
-from exceptions import ParserFindTagException
+from constants import (DOWNLOAD_DOC_URL, DOWNLOADS_DIR, EXPECTED_STATUS,
+                       MAIN_DOC_URL, PEP_URL, WHATS_NEW_URL)
+from exceptions import (NOT_FOUND, STATUS_ERROR, SUMM_ERROR, UNEXPECTED_STATUS,
+                        ParserFindTagException)
 from outputs import control_output
 from utils import find_tag, get_response, get_soup
 
@@ -18,9 +19,7 @@ from utils import find_tag, get_response, get_soup
 def pep(session):
     """Парсер информации из статей о нововведениях в Python."""
 
-    response = get_response(session, PEP_URL)
-    soup = BeautifulSoup(response.text, 'lxml')
-
+    soup = get_soup(session, PEP_URL)
     num_index = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
     tbody_tag = find_tag(num_index, 'tbody')
     tr_tags = tbody_tag.find_all('tr')
@@ -38,8 +37,10 @@ def pep(session):
         except KeyError:
             status_ext = []
             logging.info(
-                f'\nОшибочный статус в общем списке: {short_status}\n'
-                f'Строка PEP: {pep_line}'
+                STATUS_ERROR.format(
+                    short_status=short_status,
+                    pep_line=pep_line
+                )
             )
 
         link = find_tag(pep_line, 'a')['href']
@@ -55,12 +56,13 @@ def pep(session):
         status_line = status_line.find_parent()
         status_int = status_line.next_sibling.next_sibling.string
         if status_int not in status_ext:
-            logging.info(
-                '\nНесовпадение статусов:\n'
-                f'{full_link}\n'
-                f'Статус в карточке - {status_int}\n'
-                f'Ожидаемые статусы - {status_ext}'
+            logging.info(UNEXPECTED_STATUS.format(
+                full_link=full_link,
+                status_int=status_int,
+                status_ext=status_ext
             )
+            )
+
         status_counter[status_int] += 1
 
     results.extend(status_counter.items())
@@ -68,9 +70,10 @@ def pep(session):
 
     if total_pep_count != sum_from_cards:
         logging.error(
-            f'\n Ошибка в сумме:\n'
-            f'Всего PEP: {total_pep_count}'
-            f'Всего статусов из карточек: {sum_from_cards}'
+            SUMM_ERROR.format(
+                total_pep_count=total_pep_count,
+                sum_from_cards=sum_from_cards
+            )
         )
         results.append(('Total', sum_from_cards))
     else:
@@ -102,10 +105,7 @@ def whats_new(session):
 def latest_versions(session):
     """Парсер статусов версий Python."""
     REG_EX = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
-    response = get_response(session, MAIN_DOC_URL)
-    if response is None:
-        return
-    soup = BeautifulSoup(response.text, features='lxml')
+    soup = get_soup(session, MAIN_DOC_URL)
     ul_tags = soup.find_all('ul')
 
     for ul in ul_tags:
@@ -113,7 +113,7 @@ def latest_versions(session):
             a_tags = ul.find_all('a')
             break
     else:
-        raise Exception('Ничего не нашлось')
+        raise ParserFindTagException(NOT_FOUND)
 
     results = [('Ссылка на докуметацию', 'Версия', 'Статус')]
     pattern_r = REG_EX
@@ -133,30 +133,29 @@ def latest_versions(session):
 
 
 def download(session):
+    """Скачивает архив с документацией"""
     FILE = r'.+pdf-a4\.zip$'
-    downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
-    response = get_response(session, downloads_url)
-    if response is None:
-        return
-    soup = BeautifulSoup(response.text, features='lxml')
+    soup = get_soup(session, DOWNLOAD_DOC_URL)
     table_tag = find_tag(soup, 'table', {'class': 'docutils'})
     pdf_a4_tag = find_tag(table_tag, 'a',
                           {'href': re.compile(FILE)})
     pdf_a4_link = pdf_a4_tag['href']
-    archive_url = urljoin(downloads_url, pdf_a4_link)
+
+    archive_url = urljoin(DOWNLOAD_DOC_URL, pdf_a4_link)
     filename = archive_url.split('/')[-1]
-    downloads_dir = BASE_DIR / 'downloads'
-    downloads_dir.mkdir(exist_ok=True)
-    archive_path = downloads_dir / filename
+    DOWNLOADS_DIR.mkdir(exist_ok=True)
+    archive_path = DOWNLOADS_DIR / filename
     response = session.get(archive_url)
+
     with open(archive_path, 'wb') as file:
         file.write(response.content)
+
     logging.info(f'Архив был загружен и сохранен: {archive_path}')
 
 
 MODE_TO_FUNCTION = {
     'whats-new': whats_new,
-    'latest-versions': latest_versions,
+    'latest-version': latest_versions,
     'download': download,
     'pep': pep,
 }

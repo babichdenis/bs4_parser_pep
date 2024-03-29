@@ -3,10 +3,15 @@ from urllib.parse import urljoin
 
 PEP_URL = 'https://peps.python.org/'
 MAIN_DOC_URL = 'https://docs.python.org/3/'
-WHATS_NEW_URL = urljoin(MAIN_DOC_URL, 'whatsnew/')
-BASE_DIR = Path(__file__).parent
-DATETIME_FORMAT = '%Y-%m-%d_%H-%M-%S'
 
+
+BASE_DIR = Path(__file__).parent
+
+DOWNLOAD_DOC_URL = urljoin(MAIN_DOC_URL, 'download.html')
+DOWNLOADS_DIR = BASE_DIR / 'downloads'
+WHATS_NEW_URL = urljoin(MAIN_DOC_URL, 'whatsnew/')
+
+DATETIME_FORMAT = '%Y-%m-%d_%H-%M-%S'
 LOG_FORMAT = '"%(asctime)s - [%(levelname)s] - %(message)s"'
 DT_FORMAT = '%d.%m.%Y %H:%M:%S'
 
