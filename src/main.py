@@ -102,7 +102,7 @@ def whats_new(session):
     return results
 
 
-def latest_version(session):
+def latest_versions(session):
     """Парсер статусов версий Python."""
     REG_EX = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
     soup = get_soup(session, MAIN_DOC_URL)
@@ -156,7 +156,7 @@ def download(session):
 
 MODE_TO_FUNCTION = {
     'whats-new': whats_new,
-    'latest-version': latest_version,
+    'latest-versions': latest_versions,
     'download': download,
     'pep': pep,
 }
