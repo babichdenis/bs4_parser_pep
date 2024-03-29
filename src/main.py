@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import (DOWNLOAD_DOC_URL, DOWNLOADS_DIR, EXPECTED_STATUS,
+from constants import (BASE_DIR, DOWNLOAD_DOC_URL, EXPECTED_STATUS,
                        MAIN_DOC_URL, PEP_URL, WHATS_NEW_URL)
 from exceptions import (NOT_FOUND, STATUS_ERROR, SUMM_ERROR, UNEXPECTED_STATUS,
                         ParserFindTagException)
@@ -143,6 +143,7 @@ def download(session):
 
     archive_url = urljoin(DOWNLOAD_DOC_URL, pdf_a4_link)
     filename = archive_url.split('/')[-1]
+    DOWNLOADS_DIR = BASE_DIR / 'downloads'
     DOWNLOADS_DIR.mkdir(exist_ok=True)
     archive_path = DOWNLOADS_DIR / filename
     response = session.get(archive_url)
