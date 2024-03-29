@@ -83,7 +83,7 @@ def pep(session):
 
 def whats_new(session):
     """Парсер информации из статей о нововведениях в Python."""
-    results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
+    results = [('Ссылка на статью', 'Заголовок', 'Редактор', 'Автор')]
     soup = get_soup(session, WHATS_NEW_URL)
     sections_by_python = soup.select(
         '#what-s-new-in-python div.toctree-wrapper li.toctree-l1'
