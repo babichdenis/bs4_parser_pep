@@ -1,8 +1,10 @@
 import logging
 
+from bs4 import BeautifulSoup
 from requests import RequestException
 
-from exceptions import BROKEN_URL, TAG_NOT_FOUND, ParserFindTagException
+from exceptions import (BROKEN_URL, RESPONSE_IS_NONE, TAG_NOT_FOUND,
+                        ParserFindTagException)
 
 
 def get_response(session, url):
@@ -29,3 +31,13 @@ def find_tag(soup, tag, attrs=None):
             TAG_NOT_FOUND.format(tag=tag, attrs=attrs)
         )
     return searched_tag
+
+
+def get_soup(session, url, features='lxml'):
+    """Парсит url и возвращает объект супа"""
+    response = get_response(session, url)
+    if response is None:
+        logging.error(RESPONSE_IS_NONE.format(url=url))
+        return
+    soup = BeautifulSoup(response.text, features)
+    return soup

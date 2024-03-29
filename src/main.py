@@ -1,17 +1,18 @@
 import logging
 import re
-from urllib.parse import urljoin
 from collections import Counter
+from urllib.parse import urljoin
+
 import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from constants import (
-    BASE_DIR, MAIN_DOC_URL,
-    WHATS_NEW_URL, PEP_URL, EXPECTED_STATUS)
 from configs import configure_argument_parser, configure_logging
+from constants import (BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, PEP_URL,
+                       WHATS_NEW_URL)
+from exceptions import ParserFindTagException
 from outputs import control_output
-from utils import get_response, find_tag
+from utils import find_tag, get_response, get_soup
 
 
 def pep(session):
@@ -79,30 +80,22 @@ def pep(session):
 
 def whats_new(session):
     """Парсер информации из статей о нововведениях в Python."""
-
-    response = get_response(session, WHATS_NEW_URL)
-    if response is None:
-        return
-    soup = BeautifulSoup(response.text, features='lxml')
-    main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
-    div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all(
-        'li', attrs={'class': 'toctree-l1'})
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
+    soup = get_soup(session, WHATS_NEW_URL)
+    sections_by_python = soup.select(
+        '#what-s-new-in-python div.toctree-wrapper li.toctree-l1'
+    )
+    if not sections_by_python:
+        raise ParserFindTagException(NOT_FOUND)
     for section in tqdm(sections_by_python):
-        version_a_tag = section.find('a')
-        href = version_a_tag['href']
+        version_a_tag = find_tag(section, 'a')
+        href = version_a_tag["href"]
         version_link = urljoin(WHATS_NEW_URL, href)
-        response = get_response(session, version_link)
-        if response is None:
-            continue
-        soup = BeautifulSoup(response.text, features='lxml')
+        soup = get_soup(session, version_link)
         h1 = find_tag(soup, 'h1')
         dl = find_tag(soup, 'dl')
         dl_text = dl.text.replace('\n', ' ')
-        results.append(
-            (version_link, h1.text, dl_text)
-        )
+        results.append((version_link, h1.text, dl_text))
     return results
 
 
