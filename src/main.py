@@ -1,6 +1,6 @@
 import logging
 import re
-from collections import Counter
+from collections import defaultdict
 from urllib.parse import urljoin
 
 import requests_cache
@@ -10,81 +10,69 @@ from tqdm import tqdm
 from configs import configure_argument_parser, configure_logging
 from constants import (BASE_DIR, DOWNLOAD_DOC_URL, EXPECTED_STATUS,
                        MAIN_DOC_URL, PEP_URL, WHATS_NEW_URL)
-from exceptions import (NOT_FOUND, STATUS_ERROR, SUMM_ERROR, UNEXPECTED_STATUS,
-                        ParserFindTagException)
+from exceptions import NOT_FOUND, ParserFindTagException
 from outputs import control_output
-from utils import find_tag, get_response, get_soup
+from utils import find_tag, get_response
 
 
 def pep(session):
     """Парсер информации из статей о нововведениях в Python."""
+    response = get_response(session, PEP_URL)
+    if response is None:
+        return None
 
-    soup = get_soup(session, PEP_URL)
-    num_index = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
-    tbody_tag = find_tag(num_index, 'tbody')
-    tr_tags = tbody_tag.find_all('tr')
+    soup = BeautifulSoup(response.text, features='lxml')
+    pep_table = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
+    pep_table_data = find_tag(pep_table, 'tbody')
+    pep_tags = pep_table_data.find_all('tr')
+    errors = []
+    result = [('Статус', 'Количество')]
+    status_sum = defaultdict(int)
+    error_messages = []
 
-    total_pep_count = 0
-    status_counter = Counter()
-
-    results = [('Статус', 'Количество')]
-
-    for pep_line in tqdm(tr_tags):
-        total_pep_count += 1
-        short_status = pep_line.find('td').text[1:]
-        try:
-            status_ext = EXPECTED_STATUS[short_status]
-        except KeyError:
-            status_ext = []
-            logging.info(
-                STATUS_ERROR.format(
-                    short_status=short_status,
-                    pep_line=pep_line
-                )
-            )
-
-        link = find_tag(pep_line, 'a')['href']
-        full_link = urljoin(PEP_URL, link)
-        response = get_response(session, full_link)
-        soup = BeautifulSoup(response.text, 'lxml')
-        dl_tag = find_tag(soup, 'dl')
-        status_line = dl_tag.find(string='Status')
-
-        if not status_line:
-            logging.error(f'{full_link} - не найдена строка статуса')
+    for pep_tag in tqdm(pep_tags):
+        pep_abbr = find_tag(pep_tag, 'abbr')
+        preview_status = pep_abbr.text[1:]
+        href = find_tag(pep_tag, 'a')['href']
+        pep_link = urljoin(PEP_URL, href)
+        response = get_response(session, pep_link)
+        if response is None:
             continue
-        status_line = status_line.find_parent()
-        status_int = status_line.next_sibling.next_sibling.string
-        if status_int not in status_ext:
-            logging.info(UNEXPECTED_STATUS.format(
-                full_link=full_link,
-                status_int=status_int,
-                status_ext=status_ext
-            )
-            )
+        soup = BeautifulSoup(response.text, features='lxml')
+        description = find_tag(
+            soup, 'dl', attrs={'class': 'rfc2822 field-list simple'})
+        td = description.find(string='Status')
+        status = td.find_parent().find_next_sibling().text
 
-        status_counter[status_int] += 1
+        try:
+            if status not in EXPECTED_STATUS[preview_status]:
+                errors.append((pep_link, preview_status, status))
+                error_message = (f'Несовпадающие статусы:\n'
+                                 f'Статус в карточке: {status}\n'
+                                 f'Ожидаемые статусы:'
+                                 f' {EXPECTED_STATUS[preview_status]}')
+                error_messages.append(error_message)
+        except KeyError:
+            logging.error('Непредвиденный код статуса в превью: '
+                          f'{preview_status}')
 
-    results.extend(status_counter.items())
-    sum_from_cards = sum(status_counter.values())
+        status_sum[status] += 1
 
-    if total_pep_count != sum_from_cards:
-        logging.error(
-            SUMM_ERROR.format(
-                total_pep_count=total_pep_count,
-                sum_from_cards=sum_from_cards
-            )
-        )
-        results.append(('Total', sum_from_cards))
-    else:
-        results.append(('Total', total_pep_count))
-    return results
+    logging.warning('\n'.join(error_messages))
+
+    result.extend(status_sum.items())
+    result.append(('Total', sum(status_sum.values())))
+    return result
 
 
 def whats_new(session):
     """Парсер информации из статей о нововведениях в Python."""
+
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
-    soup = get_soup(session, WHATS_NEW_URL)
+    response = get_response(session, WHATS_NEW_URL)
+    if response is None:
+        return
+    soup = BeautifulSoup(response.text, features='lxml')
     sections_by_python = soup.select(
         '#what-s-new-in-python div.toctree-wrapper li.toctree-l1'
     )
@@ -94,7 +82,10 @@ def whats_new(session):
         version_a_tag = find_tag(section, 'a')
         href = version_a_tag["href"]
         version_link = urljoin(WHATS_NEW_URL, href)
-        soup = get_soup(session, version_link)
+        response = get_response(session, version_link)
+        if response is None:
+            continue
+        soup = BeautifulSoup(response.text, 'lxml')
         h1 = find_tag(soup, 'h1')
         dl = find_tag(soup, 'dl')
         dl_text = dl.text.replace('\n', ' ')
@@ -104,8 +95,12 @@ def whats_new(session):
 
 def latest_versions(session):
     """Парсер статусов версий Python."""
+
     REG_EX = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
-    soup = get_soup(session, MAIN_DOC_URL)
+    response = get_response(session, MAIN_DOC_URL)
+    if response is None:
+        return
+    soup = BeautifulSoup(response.text, features='lxml')
     ul_tags = soup.find_all('ul')
 
     for ul in ul_tags:
@@ -134,8 +129,13 @@ def latest_versions(session):
 
 def download(session):
     """Скачивает архив с документацией"""
+
     FILE = r'.+pdf-a4\.zip$'
-    soup = get_soup(session, DOWNLOAD_DOC_URL)
+
+    response = get_response(session, DOWNLOAD_DOC_URL)
+    if response is None:
+        return
+    soup = BeautifulSoup(response.text, features='lxml')
     table_tag = find_tag(soup, 'table', {'class': 'docutils'})
     pdf_a4_tag = find_tag(table_tag, 'a',
                           {'href': re.compile(FILE)})
