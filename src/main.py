@@ -53,7 +53,7 @@ def pep(session):
                                  f' {EXPECTED_STATUS[preview_status]}')
                 error_messages.append(error_message)
         except KeyError:
-            logging.error('Непредвиденный код статуса в превью: '
+            logging.error('Непредвиденный код статуса: '
                           f'{preview_status}')
 
         status_sum[status] += 1
